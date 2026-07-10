@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AI-Powered URL Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+
+        .card-result {
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            background: #f9f9f9;
+            padding: 24px;
+            height: 100%;
+        }
+        .status-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0 auto;
+        }
+        .status-icon img {
+            width: 40px;
+        }
+        .score-box {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+        .score-safe {
+            background-color: #d4f7dc;
+            color: #106b21;
+        }
+        .score-warning {
+            background-color: #fff4cc;
+            color: #8a6d00;
+        }
+        .score-danger {
+            background-color: #fddede;
+            color: #a94442;
+        }
+
+        /* Navbar màu dark-navy, cao hơn và bo tròn góc dưới */
+        .navbar-dark-navy {
+            background-color: #0e343c;
+            border-bottom-left-radius: 18px;
+            border-bottom-right-radius: 18px;
+            padding-top: 0.85rem;
+            padding-bottom: 0.85rem;
+        }
+
+        /* Logo có nền tròn trắng tách khỏi background */
+        .navbar-logo-bg {
+            background-color: #ffffff;
+            border-radius: 999px;
+            padding: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+        }
+
+        .navbar-logo {
+            height: 32px; /* logo nhỏ hơn một chút, tuỳ bạn chỉnh */
+            width: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Header / Navbar với logo + nút Đóng góp -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-dark-navy shadow-sm mb-4">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+                <span class="navbar-logo-bg me-2">
+                    <img src="{{ url_for('static', filename='icons/logo.png') }}"
+                         alt="Logo" class="navbar-logo">
+                </span>
+                <span class="fw-bold">AI-Powered URL Analyzer</span>
+            </a>
+            <div class="ms-auto">
+                <button type="button"
+                        class="btn btn-success"
+                        data-bs-toggle="modal"
+                        data-bs-target="#contributeModal">
+                    Đóng góp
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        <h2 class="mb-4 text-center"><strong>AI-Powered URL Analyzer</strong></h2>
+        <p class="text-center text-muted">
+            Nhận diện web lừa đảo bằng AI và đánh giá từ các nguồn bảo mật phổ biến.<br>
+            <small><strong>Lưu ý:</strong> Kết quả chỉ mang tính tham khảo từ AI & dữ liệu công khai.</small>
+        </p>
+
+        <form method="POST" class="mb-4 d-flex justify-content-center">
+            <input type="text" name="url" class="form-control w-50 me-2"
+                   placeholder="Nhập URL (vd: fb.com)" value="{{ url }}" required>
+            <button type="submit" class="btn btn-success">Phân tích</button>
+        </form>
+
+        {% if prediction %}
+        <div class="row">
+            <!-- Phân tích AI -->
+            <div class="col-md-6 mb-4">
+                <div class="card-result text-center d-flex flex-column justify-content-center">
+                    <div class="status-icon mb-3">
+                        {% if score >= 7 %}
+                            <img src="{{ url_for('static', filename='icons/warn_red.png') }}" alt="danger">
+                        {% elif score >= 4 %}
+                            <img src="{{ url_for('static', filename='icons/warn_yellow.png') }}" alt="warning">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='icons/check_green.png') }}" alt="safe">
+                        {% endif %}
+                    </div>
+                    <h5>
+                        {% if score >= 7 %}
+                            Có vẻ <span class="text-danger">nguy hiểm</span>
+                        {% elif score >= 4 %}
+                            Có vẻ <span class="text-warning">nghi ngờ</span>
+                        {% else %}
+                            Có vẻ <span class="text-success">an toàn</span>
+                        {% endif %}
+                    </h5>
+                    <hr>
+                    <p><strong>Rủi ro:</strong>
+                        <span class="score-box
+                            {% if score >= 7 %}score-danger
+                            {% elif score >= 4 %}score-warning
+                            {% else %}score-safe
+                            {% endif %}">
+                            {{ score }}/10
+                        </span>
+                    </p>
+                    <p><strong>Phát hiện:</strong>
+                        Trang web được AI đánh giá là
+                        {% if csv_label %}
+                            {{ csv_label }}
+                        {% else %}
+                            {{ prediction | lower }}
+                        {% endif %}
+                    </p>
+                    <p><small>Kiểm tra lúc: {{ now() }}</small></p>
+                </div>
+            </div>
+
+            <!-- Báo cáo -->
+            <div class="col-md-6 mb-4">
+                <div class="card-result">
+                    <h5 class="mb-3">
+                        <img src="{{ url_for('static', filename='icons/flag.png') }}" alt="flag"
+                             style="width:18px; margin-right:6px;">
+                        <strong>Báo cáo từ các nguồn</strong>
+                    </h5>
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nguồn</th>
+                                <th>Kết quả</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>AI dự đoán</td>
+                                <td>
+                                    {% if csv_label == 'nguy hiểm' %}
+                                        <span class="text-danger">Nguy hiểm</span>
+                                    {% elif csv_label == 'an toàn' %}
+                                        <span class="text-success">Không nguy hiểm</span>
+                                    {% else %}
+                                        {% if ai_score == 1 %}
+                                            <span class="text-danger">Nguy hiểm</span>
+                                        {% else %}
+                                            <span class="text-success">Không nguy hiểm</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Google Safe Browsing</td>
+                                <td>
+                                    {% if api and api.safe_browsing %}
+                                        <span class="text-danger">Phát hiện mối đe dọa</span>
+                                    {% elif api %}
+                                        <span class="text-success">Không phát hiện</span>
+                                    {% else %}
+                                        <span class="text-muted">Không có dữ liệu</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Google Web Risk</td>
+                                <td>
+                                    {% if api and api.web_risk and api.web_risk > 0 %}
+                                        <span class="text-danger">{{ api.web_risk }} loại đe dọa</span>
+                                    {% elif api %}
+                                        <span class="text-success">Không phát hiện</span>
+                                    {% else %}
+                                        <span class="text-muted">Không có dữ liệu</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>VirusTotal</td>
+                                <td>
+                                    {% if api and api.virustotal_malicious and api.virustotal_malicious > 0 %}
+                                        <span class="text-danger">{{ api.virustotal_malicious }} engine cảnh báo</span>
+                                    {% elif api %}
+                                        <span class="text-success">Không cảnh báo</span>
+                                    {% else %}
+                                        <span class="text-muted">Không có dữ liệu</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Tên miền</td>
+                                <td>
+                                    {% if domain_ok is not none %}
+                                        {% if domain_ok %}
+                                            <span class="text-success">Tồn tại</span>
+                                        {% else %}
+                                            <span class="text-warning">Không phân giải được IP</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Không có dữ liệu</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Quốc gia IP</td>
+                                <td>
+                                    {% if api and api.ipinfo and api.ipinfo.country %}
+                                        {{ api.ipinfo.country }}
+                                    {% else %}
+                                        Không xác định
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Tổ chức</td>
+                                <td>
+                                    {% if api and api.ipinfo and api.ipinfo.org %}
+                                        {{ api.ipinfo.org }}
+                                    {% else %}
+                                        Không xác định
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Ảnh chụp màn hình -->
+            <div class="col-md-12 mb-4">
+                <div class="card-result text-center">
+                    <h5 class="mb-3 d-flex align-items-center justify-content-center">
+                        <img src="{{ url_for('static', filename='icons/pic.png') }}" alt="pic"
+                             style="width:20px; height:20px; margin-right:8px;">
+                        <strong class="m-0">Ảnh chụp màn hình</strong>
+                    </h5>
+                    {% if domain_ok %}
+                        <img src="https://api.screenshotmachine.com/?key=f778c4&url={{ url }}&dimension=1024x768"
+                             alt="Screenshot" class="img-fluid rounded border shadow-sm">
+                    {% else %}
+                        <div class="text-warning mt-2">
+                            Không thể hiển thị ảnh chụp vì <strong>tên miền không tồn tại</strong>.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Modal Đóng góp URL -->
+    <div class="modal fade" id="contributeModal" tabindex="-1" aria-labelledby="contributeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('contribute') }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="contributeModalLabel">Đóng góp URL</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="contrib_url" class="form-label">URL</label>
+                            <input type="text" class="form-control" id="contrib_url" name="contrib_url"
+                                   placeholder="Nhập URL (vd: fb.com)" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label d-block">Đánh giá</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="label" id="label_danger" value="1" required>
+                                <label class="form-check-label" for="label_danger">Nguy hiểm</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="label" id="label_safe" value="0">
+                                <label class="form-check-label" for="label_safe">An toàn</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-success">Đóng góp</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal cảnh báo khi URL là mạng xã hội -->
+    <div class="modal fade" id="socialWarningModal" tabindex="-1" aria-labelledby="socialWarningModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="socialWarningModalLabel">Lưu ý khi kiểm tra mạng xã hội</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body">
+                    Có vẻ bạn đang muốn kiểm tra một trang mạng xã hội. Tuy nhiên, AI không thể xác định hoặc kết luận
+                    một cá nhân có phải là lừa đảo hay không. Bạn nên kết hợp thêm các dấu hiệu thực tế và kiểm chứng
+                    từ nhiều nguồn để đánh giá.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">Tôi đã hiểu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS cho modal -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script kiểm tra URL mạng xã hội dựa trên CSV -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const urlInput = document.querySelector('input[name="url"]');
+            if (!urlInput) return;
+            const form = urlInput.form;
+            if (!form) return;
+
+            let socialDomains = [];
+
+            // Đọc file CSV danh sách MXH
+            fetch("{{ url_for('static', filename='data/social_sites.csv') }}")
+                .then(resp => resp.text())
+                .then(text => {
+                    socialDomains = text
+                        .split(/\r?\n/)
+                        .map(l => l.trim().toLowerCase())
+                        .filter(l => l && !l.startsWith('#'));
+                })
+                .catch(() => {
+                    // nếu lỗi đọc CSV thì đơn giản là không kiểm tra MXH
+                });
+
+            form.addEventListener('submit', function (e) {
+                const raw = (urlInput.value || '').trim().toLowerCase();
+                if (!raw || socialDomains.length === 0) return;
+
+                let host = raw;
+                let path = '/';
+                try {
+                    // đảm bảo parse được URL
+                    if (!/^https?:\/\//i.test(host)) {
+                        host = 'http://' + host;
+                    }
+                    const u = new URL(host);
+                    host = u.hostname.toLowerCase();
+                    path = u.pathname || '/';
+                } catch (err) {
+                    // nếu không parse được thì fallback dùng chuỗi gốc
+                    host = raw;
+                    path = '/';
+                }
+
+                // chỉ coi là "link MXH cần cảnh báo" khi:
+                // 1) host là domain MXH (hoặc subdomain MXH)
+                // 2) có path cụ thể, KHÔNG phải trang chính (path != '/' )
+                const isSocialDomain = socialDomains.some(d =>
+                    host === d || host.endsWith('.' + d)
+                );
+                const hasPath = path && path !== '/';
+                const shouldShowPopup = isSocialDomain && hasPath;
+
+                if (shouldShowPopup) {
+                    // chặn submit, hiện pop up, và KHÔNG kiểm tra URL nữa
+                    e.preventDefault();
+                    const modalEl = document.getElementById('socialWarningModal');
+                    if (modalEl && window.bootstrap && bootstrap.Modal) {
+                        const m = new bootstrap.Modal(modalEl);
+                        m.show();
+                    } else {
+                        alert(
+                            "Có vẻ bạn đang muốn kiểm tra một trang mạng xã hội.\n\n" +
+                            "Tuy nhiên, AI không thể xác định hoặc kết luận một cá nhân có phải là lừa đảo hay không. " +
+                            "Bạn nên kết hợp thêm các dấu hiệu thực tế và kiểm chứng từ nhiều nguồn để đánh giá."
+                        );
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
